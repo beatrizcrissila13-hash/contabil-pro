@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),mk=(tag,text,cls)=>{const x=document.cre
 let user=null,modules=[],lessons=[],module=null,done=new Set(),token=0,attemptHistory=[];
 function go(page){if(page==='course'&&!module)page='catalog';for(const id of ['dashboard','catalog','course','study'])$(id).classList.toggle('hide',id!==page);document.querySelectorAll('[data-go]').forEach(b=>b.classList.toggle('active',b.dataset.go===page));window.scrollTo(0,0)}
 function feedback(msg){$('feedback').textContent=msg||''}
-function session(s){const u=s?.user??null;if(u?.id===user?.id)return;user=u;$('login').classList.toggle('hide',!!u);$('app').classList.toggle('hide',!u);$('mobilebar').classList.toggle('hide',!u);if(u)load();else{module=null;modules=[];go('dashboard')}}
+function session(s){const u=s?.user??null;if(u?.id===user?.id)return;token++;user=u;$('login').classList.toggle('hide',!!u);$('app').classList.toggle('hide',!u);$('mobilebar').classList.toggle('hide',!u);if(u)load();else{module=null;modules=[];lessons=[];done=new Set();attemptHistory=[];$('nDone').textContent='0';$('nAttempts').textContent='0';$('nAccuracy').textContent='—';feedback('');go('dashboard')}}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 $('begin').onclick=()=>go('catalog');$('first').onclick=()=>modules[0]&&openModule(modules[0]);$('allModules').onclick=()=>go('catalog');$('allLessons').onclick=()=>go('course');$('search').oninput=renderModules;$('logout').onclick=()=>db.auth.signOut();
 $('form').onsubmit=async e=>{e.preventDefault();$('error').textContent='Entrando...';const{error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});$('error').textContent=error?error.message:''};
