@@ -35,7 +35,7 @@ function solveTVM(target){const f={...state.fin},rate=f.i/100;if(f.n<0||rate<=-1
 if(target==='n'){const fn=n=>tvmResidual(f,rate,n);const roots=bracketRoots(fn,0,1200,1200).filter(v=>v>=0);if(roots.length!==1)throw Error(roots.length?'Múltiplos prazos possíveis.':'Prazo não encontrado de 0 a 1200 períodos.');return roots[0]}
 if(target==='i'){const fn=r=>tvmResidual(f,r,f.n);const ranges=[[-.999,0],[0,1],[1,10]],roots=ranges.flatMap(([lo,hi])=>bracketRoots(fn,lo,hi));const distinct=roots.filter((v,i)=>roots.findIndex(w=>Math.abs(w-v)<1e-7)===i);if(distinct.length!==1)throw Error(distinct.length?'Múltiplas taxas possíveis.':'Taxa não encontrada no intervalo suportado.');return distinct[0]*100}
 throw Error('Função desconhecida')}
-function npv(rate){if(!state.flows.length)throw Error('Cadastre CF0 e pelo menos um CFj.');if(rate<=-100)throw Error('Taxa deve ser maior que -100%.');return state.flows.reduce((s,x,j)=>s+x/Math.pow(1+rate/100,j),0)}
+function npv(rate){if(state.flows.length<2)throw Error('Cadastre CF0 e pelo menos um CFj.');if(rate<=-100)throw Error('Taxa deve ser maior que -100%.');return state.flows.reduce((s,x,j)=>s+x/Math.pow(1+rate/100,j),0)}
 function irr(){if(state.flows.length<2||!state.flows.some(x=>x<0)||!state.flows.some(x=>x>0))throw Error('TIR exige entradas e saídas.');const roots=[[-99.9,0],[0,100],[100,1000]].flatMap(([lo,hi])=>bracketRoots(t=>npv(t),lo,hi,700));const distinct=roots.filter((v,i)=>roots.findIndex(w=>Math.abs(w-v)<1e-5)===i);if(distinct.length!==1)throw Error(distinct.length?'Fluxo com múltiplas TIRs; use análise de VPL.':'TIR não encontrada no intervalo suportado.');return distinct[0]}
 function press(key){try{
 if(key==='f'||key==='g'){state.shift=state.shift===key?'':key;update('Função secundária selecionada');return}
@@ -52,7 +52,7 @@ if(['+','−','×','÷'].includes(key)){commit();const [x,y,z,t]=state.stack;con
 if(key==='%'){commit();set(state.stack[1]*state.stack[0]/100,'Percentual calculado');return}
 if(['n','i','PV','PMT','FV'].includes(key)){if(state.typing!==''){commit();state.fin[key]=state.stack[0];state.lift=true;update(key+' armazenado: '+shown(state.fin[key]))}else{const v=solveTVM(key);state.fin[key]=v;set(v,key+' calculado')}return}
 if(key==='CF0'){commit();state.flows=[state.stack[0]];state.lift=true;update('CF0 registrado');return}
-if(key==='CFj'){commit();state.flows.push(state.stack[0]);state.lift=true;update('Fluxo '+(state.flows.length-1)+' registrado');return}
+if(key==='CFj'){commit();if(!state.flows.length)throw Error('Informe CF0 antes dos demais fluxos.');state.flows.push(state.stack[0]);state.lift=true;update('Fluxo '+(state.flows.length-1)+' registrado');return}
 if(key==='NPV'){commit();set(npv(state.fin.i),'VPL com taxa i = '+shown(state.fin.i)+'%');return}
 if(key==='IRR'){commit();set(irr(),'TIR por período (%)');return}
 if(key==='R↓'){commit();state.stack=[state.stack[1],state.stack[2],state.stack[3],state.stack[0]];update();return}
@@ -60,30 +60,21 @@ if(key==='R↓'){commit();state.stack=[state.stack[1],state.stack[2],state.stack
 const layout=[['n','fn'],['i','fn'],['PV','fn'],['PMT','fn'],['FV','fn'],['f','gold'],['g','blue'],['FIN','fn'],['BEG','fn'],['END','fn'],['CF0','fn'],['CFj','fn'],['NPV','fn'],['IRR','fn'],['CLx','fn'],['7',''],['8',''],['9',''],['÷',''],['%',''],['4',''],['5',''],['6',''],['×',''],['CHS',''],['1',''],['2',''],['3',''],['−',''],['x↔y',''],['0',''],['.',''],['ENTER','enter'],['+',''],['R↓','']];
 for(const [key,kind]of layout){const b=mk('button',key,'hp-key '+kind);b.type='button';b.title=key==='FIN'?'Pressione f e depois FIN para limpar os registros financeiros':key==='BEG'||key==='END'?'Pressione g e depois '+key:key;b.onclick=()=>press(key);keys.append(b)}
 const guide=mk('details',undefined,'hp-guide');guide.append(mk('summary','Como usar a calculadora e as teclas financeiras'),mk('p','RPN: 150 ENTER 250 + → 400. Para digitar número negativo, use CHS. Para armazenar n, i, PV, PMT ou FV, digite o valor e toque a tecla. Para calcular a variável desconhecida, toque sua tecla sem digitar outro número. Antes de cada problema financeiro, pressione f e FIN. g + BEG ou END define o momento dos pagamentos. CF0/CFj registram fluxos; i define a taxa usada em NPV. IRR calcula a taxa por período.'),mk('p','Simulador didático inspirado nas funções da HP 12C, não uma reprodução certificada do firmware. Não inclui todas as funções, precisão, convenções e modos do aparelho original. Confira cálculos financeiros relevantes em fontes independentes.'));root.append(guide);
-return {root,press,read:()=>state.stack[0],reset:()=>{state.stack=[0,0,0,0];state.typing='';state.lift=false;state.shift='';state.fin={n:0,i:0,PV:0,PMT:0,FV:0};state.flows=[];state.begin=false;update('Reiniciada')}}}
+return {root,press,read:()=>state.stack[0],snapshot:()=>({stack:[...state.stack],fin:{...state.fin},flows:[...state.flows],begin:state.begin,typing:state.typing}),reset:()=>{state.stack=[0,0,0,0];state.typing='';state.lift=false;state.shift='';state.fin={n:0,i:0,PV:0,PMT:0,FV:0};state.flows=[];state.begin=false;update('Reiniciada')}}}
 
-function hpValidationSuite(){const pow=Math.pow;const pmt=(pv,r,n,begin=false)=>pv*r/(1-pow(1+r,-n))/(begin?1+r:1);const npv=(flows,r)=>flows.reduce((s,x,i)=>s+x/pow(1+r,i),0);const tests=[
-['RPN: soma',150+250,400],
-['RPN: subtração',1200-350,850],
-['RPN: multiplicação',24*8,192],
-['RPN: divisão',144/12,12],
-['Desconto fornecedor',8000*(1-.025),7800],
-['Recebíveis com abatimento',1500*(1-.04),1440],
-['Tesouraria: saldo',12000+5500-9250,8250],
-['Juros simples',2000*(1+.01*3),2060],
-['Juros compostos',1000*pow(1.02,3),1061.208],
-['Taxa efetiva anual',100*(pow(1.01,12)-1),12.6825030132],
-['Valor futuro TVM',5000*pow(1.01,12),5634.12515065],
-['Prestação END',pmt(10000,.02,12),945.595966],
-['Prestação BEGIN',pmt(10000,.02,12,true),927.054869],
-['VPL positivo',npv([-1000,600,600],.1),41.32231405],
-['VPL negativo',npv([-2000,1100,1100],.1),-90.90909091],
-['TIR de um período',1100/1000*100-100,10],
-['Desconto sucessivo',1000*.9*.95,855],
-['Fluxo de tesouraria',6500-2100+1750-50,6100]
-];return tests.map(([name,actual,expected])=>({name,ok:Number.isFinite(actual)&&Math.abs(actual-expected)<.025,actual,expected}))}
-function hpQualityPanel(){const results=hpValidationSuite(),passed=results.filter(x=>x.ok).length;const box=mk('details',undefined,'hp-guide');box.append(mk('summary','Conferência técnica: '+passed+'/'+results.length+' cenários de referência'));const intro=mk('p','Os testes conferem fórmulas e resultados de referência, mas não substituem testes automatizados das sequências de teclas nem validação de todas as funções de uma HP 12C física.');box.append(intro);for(const t of results){const p=mk('p',(t.ok?'✓ ':'⚠ ')+t.name+' — referência: '+t.expected.toLocaleString('pt-BR',{maximumFractionDigits:5}));box.append(p)}return box}
-
+function hpValidationSuite(){const checks=[
+{name:'RPN · soma',seq:['1','5','0','ENTER','2','5','0','+'],expected:400},
+{name:'RPN · subtração',seq:['1','2','0','0','ENTER','3','5','0','−'],expected:850},
+{name:'RPN · multiplicação',seq:['2','4','ENTER','8','×'],expected:192},
+{name:'RPN · divisão',seq:['1','4','4','ENTER','1','2','÷'],expected:12},
+{name:'Porcentagem',seq:['8','0','0','ENTER','1','5','%'],expected:120},
+{name:'Capitalização composta · FV',seq:['f','FIN','1','2','n','1','i','1','0','0','0','CHS','PV','0','PMT','FV'],expected:1126.82503013},
+{name:'Prestação · END',seq:['f','FIN','g','END','1','2','n','2','i','1','0','0','0','0','PV','0','FV','PMT'],expected:-945.595966},
+{name:'Prestação · BEGIN',seq:['f','FIN','g','BEG','1','2','n','2','i','1','0','0','0','0','PV','0','FV','PMT'],expected:-927.054869},
+{name:'VPL de projeto',seq:['f','FIN','1','0','0','0','CHS','CF0','6','0','0','CFj','6','0','0','CFj','1','0','i','NPV'],expected:41.32231405},
+{name:'TIR de um período',seq:['f','FIN','1','0','0','0','CHS','CF0','1','1','0','0','CFj','IRR'],expected:10}
+];return checks.map(c=>{const calc=makeHp12c();for(const key of c.seq)calc.press(key);const actual=calc.read();return {name:c.name,actual,expected:c.expected,ok:Number.isFinite(actual)&&Math.abs(actual-c.expected)<.03}})}
+function hpQualityPanel(){const box=mk('details',undefined,'hp-guide'),summary=mk('summary','Executar testes reais das teclas da calculadora');box.append(summary);const run=mk('button','Executar 10 testes de teclas','btn alt'),out=mk('div');run.type='button';run.style.marginTop='10px';run.onclick=()=>{const results=hpValidationSuite(),passed=results.filter(x=>x.ok).length;out.replaceChildren(mk('p',passed+' de '+results.length+' sequências aprovadas.','hp-check-output'));for(const t of results)out.append(mk('p',(t.ok?'✓ ':'✗ ')+t.name+': obtido '+String(t.actual.toFixed(4))+' · esperado '+String(t.expected.toFixed(4))));if(passed!==results.length)out.prepend(mk('p','Alguns testes falharam. Não utilize o simulador para decisões financeiras reais.','quiz-result'))};box.append(run,out,mk('p','Esses testes executam sequências reais de teclas na lógica do simulador, sem alterar a calculadora em uso. Não substituem testes com uma HP 12C física ou auditoria de precisão.'));return box}
 function hpExercisePanel(lesson,calc){const index=lesson.position-1;const tasks=[{q:'Digite 150 ENTER 250 +. Qual resultado aparece?',value:400,steps:'150 → ENTER → 250 → +',tip:'Na notação RPN, o operador vem depois dos dois números.'},{q:'Um produto custa R$ 800. Qual é 15% desse preço?',value:120,steps:'800 → ENTER → 15 → %',tip:'A porcentagem utiliza o número da pilha Y como base.'},{q:'R$ 1.000 aplicados a 2% ao mês por três meses, juros compostos: qual o montante?',value:1061.208,steps:'1000 → ENTER → 1.02 → × → 1.02 → × → 1.02 → ×',tip:'Você também pode calcular pela fórmula 1000 × 1,02³.'},{q:'R$ 1.000 por 12 meses a 1% ao mês: qual o valor futuro?',value:1126.82503013,steps:'f → FIN; 12 → n; 1 → i; 1000 → CHS → PV; 0 → PMT; FV',tip:'Confira os sinais: aplicação inicial negativa e recebimento futuro positivo.'},{q:'Empréstimo R$ 10.000 em 12 parcelas a 2% ao mês (END): qual o valor absoluto da prestação?',value:945.595966,steps:'f → FIN; g → END; 12 → n; 2 → i; 10000 → PV; 0 → FV; PMT',tip:'A prestação será negativa, pois é uma saída para quem recebeu o empréstimo.'},{q:'VPL de investimento de −R$ 1.000 hoje e R$ 600 ao final de cada um de dois anos, a 10% ao ano?',value:41.322314,steps:'1000 → CHS → CF0; 600 → CFj; 600 → CFj; 10 → i; NPV',tip:'O investimento inicial é negativo e os recebimentos futuros são positivos.'},{q:'Desconto de 3% sobre uma obrigação de R$ 4.000: quanto economiza?',value:120,steps:'4000 → ENTER → 3 → %',tip:'Compare o desconto com o custo de oportunidade antes de antecipar o pagamento.'},{q:'Calcule 12% de R$ 1.500.',value:180,steps:'1500 → ENTER → 12 → %',tip:'Use a pilha para calcular a porcentagem.'}];const task=tasks[index];if(!task)return null;const panel=mk('div',undefined,'hp-lab');panel.append(mk('strong','Desafio prático · '+lesson.title),mk('p',task.q));const actions=mk('div',undefined,'hp-check'),input=mk('input'),check=mk('button','Verificar cálculo','btn'),out=mk('div',undefined,'hp-check-output');input.type='text';input.inputMode='decimal';input.placeholder='Seu resultado';const use=mk('button','Usar visor','btn alt');use.onclick=()=>{input.value=String(calc.read()).replace('.',',')};check.onclick=()=>{const raw=input.value.trim().replace(/\s/g,'');const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;const v=Number(normalized);if(!raw||!Number.isFinite(v)){out.textContent='Digite um resultado numérico.';return}const ok=Math.abs(Math.abs(v)-Math.abs(task.value))<=Math.max(.02,Math.abs(task.value)*.00002);out.textContent=ok?'✓ Correto! Você acertou o cálculo.':'Ainda não. Confira os dados, o sinal, a taxa e o período. Tente novamente.'};actions.append(input,use,check);panel.append(actions,out);const detail=mk('details',undefined,'hp-guide');detail.append(mk('summary','Ver sequência sugerida e dica'),mk('p',task.steps),mk('p',task.tip));panel.append(detail);return panel}
 
 let currentLesson=null;
