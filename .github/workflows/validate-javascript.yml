@@ -47,3 +47,23 @@ jobs:
           for file in /tmp/contabil-pro-inline-*.js; do
             node --check "$file"
           done
+      - name: Verify critical learning flows are wired
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          required = {
+              'guided lessons': 'guided_course_v2',
+              'lesson navigation': 'openLesson(',
+              'diagnostic history': "from('guided_diagnostic_attempts')",
+              'private chapter progress': "worksheet_key:'chapter_progress_v1'",
+              'private posting worksheet': "worksheet_key:'accounts_payable_posting_v1'",
+              'financial grading': "grade_financial_unit_numeric",
+          }
+          missing = [name for name, marker in required.items() if marker not in html]
+          if missing:
+              raise SystemExit('Missing learning features: ' + ', '.join(missing))
+          if 'const {data:rows,error}=await refreshHistory()' in html:
+              raise SystemExit('Diagnostic history recursively calls itself')
+          print('Critical learning feature markers verified')
+          PY
