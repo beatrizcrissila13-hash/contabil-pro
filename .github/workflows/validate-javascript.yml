@@ -60,6 +60,7 @@ jobs:
               'private posting worksheet': "worksheet_key:'accounts_payable_posting_v1'",
               'financial grading': "grade_financial_unit_numeric",
               'server-graded AP diagnostic': "rpc('submit_ap_diagnostic'",
+              'diagnostic result renderer': 'const showResult=(answers,restored)=>',
               'chapter save retry control': 'Tentar salvar progresso novamente',
               'chapter save network error handling': "error={message:err?.message||'Erro de conexão'}",
               'chapter progress persistence': "onConflict:'user_id,lesson_id,worksheet_key'",
